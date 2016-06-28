@@ -48,11 +48,12 @@ import org.cyanogenmod.platform.internal.R;
 import java.util.ArrayList;
 
 public class CMStatusBarManagerService extends Service {
-    private static final String TAG = "CMStatusBarManagerServiceImpl";
+    private static final String TAG = "CMStatusBarService";
 
     private Context mContext;
     private Handler mHandler = new Handler();
     private CustomTileListeners mCustomTileListeners;
+    private PackageManager mPackageManager;
 
     static final int MAX_PACKAGE_TILES = 4;
 
@@ -82,6 +83,7 @@ public class CMStatusBarManagerService extends Service {
         IntentFilter sdFilter = new IntentFilter(Intent.ACTION_EXTERNAL_APPLICATIONS_UNAVAILABLE);
         mContext.registerReceiverAsUser(mPackageIntentReceiver, UserHandle.ALL, sdFilter, null,
                 null);
+        mPackageManager = getPackageManager();
     }
 
     private final BroadcastReceiver mPackageIntentReceiver = new BroadcastReceiver() {
@@ -161,16 +163,19 @@ public class CMStatusBarManagerService extends Service {
         @Override
         public void createCustomTileWithTag(String pkg, String opPkg, String tag, int id,
                 CustomTile tile, int[] idReceived, int userId) throws RemoteException {
-            createCustomTileWithTagInternal(pkg, opPkg, Binder.getCallingUid(),
+            int uid = resolveOriginalCallingUid(pkg, userId);
+            createCustomTileWithTagInternal(pkg, opPkg, uid,
                     Binder.getCallingPid(), tag, id, tile, idReceived, userId);
         }
 
         @Override
         public void removeCustomTileWithTag(String pkg, String tag, int id, int userId)
                 throws RemoteException {
+            int uid = resolveOriginalCallingUid(pkg, userId);
+            // user id is derived from uid mapped per userhandle packages
             userId = ActivityManager.handleIncomingUser(Binder.getCallingPid(),
-                    Binder.getCallingUid(), userId, true, false, "cancelCustomTileWithTag", pkg);
-            removeCustomTileWithTagInternal(Binder.getCallingUid(),
+                    uid, userId, true, false, "cancelCustomTileWithTag", pkg);
+            removeCustomTileWithTagInternal(uid,
                     Binder.getCallingPid(), pkg, tag, id, userId, null);
         }
 
@@ -296,6 +301,16 @@ public class CMStatusBarManagerService extends Service {
             }
         }
         return false;
+    }
+
+    private int resolveOriginalCallingUid(String pkg, int userId) {
+        int callingUidFromPackage = Binder.getCallingUid();
+        try {
+            callingUidFromPackage = mPackageManager.getPackageUid(pkg, userId);
+        } catch (PackageManager.NameNotFoundException e) {
+            Log.e(TAG, e.toString());
+        }
+        return callingUidFromPackage;
     }
 
     // lock on mQSTileList
