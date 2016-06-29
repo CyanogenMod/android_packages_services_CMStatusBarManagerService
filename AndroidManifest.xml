@@ -22,10 +22,13 @@
 
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS_FULL" />
 
+    <uses-permission android:name="cyanogenmod.permission.BIND_CORE_SERVICE" />
+
     <application android:label="@string/app_name"
                  android:requiredForAllUsers="true">
 
         <service android:name="org.cyanogenmod.cmstatusbarservice.CMStatusBarManagerService"
+                 android:permission="cyanogenmod.permission.BIND_CORE_SERVICE"
                  android:enabled="true"
                  android:exported="true">
             <intent-filter>
